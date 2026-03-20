@@ -101,7 +101,7 @@ function update3D() {
         const geo = new THREE.BufferGeometry().setFromPoints(points);
         dynamicGroup.add(new THREE.Line(geo, mat));
         
-        const sphereGeo = new THREE.SphereGeometry(4, 16, 16);
+        const sphereGeo = new THREE.SphereGeometry(4, 64, 64);
         const sphereMat = new THREE.MeshBasicMaterial({ color: hex });
         const sphere = new THREE.Mesh(sphereGeo, sphereMat);
         sphere.position.set(c.a, c.L, c.b);
