@@ -33,26 +33,32 @@ const container = document.getElementById('canvas-container');
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0xf4f4f4); // Fondo gris claro
 
+// En Three.js, Y es arriba. Mapearemos: X = a*, Y = L*, Z = b*
 const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
 camera.position.set(250, 150, 250);
 
+// preserveDrawingBuffer necesario para exportar imagen
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
 renderer.setSize(container.clientWidth, container.clientHeight);
 container.appendChild(renderer.domElement);
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.target.set(0, 50, 0);
+controls.target.set(0, 50, 0); // Mirar al centro de la caja (L=50)
 
 // --- 4. DIBUJAR ENTORNO ESTÁTICO 3D ---
 const materialEjes = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 });
+
+// Caja y cuadrícula a la altura de L=50 (Y=50)
 const gridHelper = new THREE.GridHelper(256, 4, 0x999999, 0xdddddd);
 gridHelper.position.y = 50;
 scene.add(gridHelper);
 
+// Eje L (Blanco/Negro)
 const pointsL = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 100, 0)];
 const lineL = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pointsL), materialEjes);
 scene.add(lineL);
 
+// Función auxiliar para texto 3D (Sprites 2D)
 function createTextSprite(message, colorStr) {
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
@@ -68,6 +74,7 @@ function createTextSprite(message, colorStr) {
     return sprite;
 }
 
+// Etiquetas y ejes fijos (CORREGIDO)
 const etiquetas = [
     { texto: "L = 100", color: "#000", pos: [0, 108, 0] },
     { texto: "L = 0", color: "#000", pos: [0, -8, 0] },
@@ -79,8 +86,8 @@ const etiquetas = [
 
 etiquetas.forEach(etiq => {
     const sprite = createTextSprite(etiq.texto, etiq.color);
-    sprite.position.set(etiq.pos[0], etiq.pos[1], etiq.pos[2]);
-    scene.add(sprite);
+    sprite.position.set(etiq.pos[0], etiq.pos[1], etiq.pos[2]); // Primero lo posicionamos
+    scene.add(sprite); // Luego lo añadimos a la escena
 });
 
 // --- 5. VECTORES DINÁMICOS ---
@@ -88,23 +95,26 @@ let dynamicGroup = new THREE.Group();
 scene.add(dynamicGroup);
 
 function update3D() {
-    dynamicGroup.clear();
+    dynamicGroup.clear(); // Limpia los vectores anteriores rapidísimo
     
     [state.c1, state.c2].forEach((c, index) => {
         const rgb = lab2rgb(c.L, c.a, c.b);
         const hex = rgb2hex(rgb[0], rgb[1], rgb[2]);
         const mat = new THREE.LineBasicMaterial({ color: hex, linewidth: 4 });
         
+        // Línea desde (0,50,0) hasta (a, L, b)
         const points = [new THREE.Vector3(0, 50, 0), new THREE.Vector3(c.a, c.L, c.b)];
         const geo = new THREE.BufferGeometry().setFromPoints(points);
         dynamicGroup.add(new THREE.Line(geo, mat));
         
+        // Esfera en la punta
         const sphereGeo = new THREE.SphereGeometry(4, 16, 16);
         const sphereMat = new THREE.MeshBasicMaterial({ color: hex });
         const sphere = new THREE.Mesh(sphereGeo, sphereMat);
         sphere.position.set(c.a, c.L, c.b);
         dynamicGroup.add(sphere);
 
+        // Etiqueta "1" o "2"
         const label = createTextSprite(index === 0 ? "1" : "2", hex);
         label.position.set(c.a + 10, c.L + 10, c.b);
         dynamicGroup.add(label);
@@ -113,6 +123,7 @@ function update3D() {
 
 // --- 6. ACTUALIZAR INTERFAZ Y DEGRADADOS CSS ---
 function getGradientStr(varName) {
+    // Generamos 5 puntos para crear un gradiente perfecto en CSS
     let stops = [];
     const min = varName === 'L' ? 0 : -128;
     const max = varName === 'L' ? 100 : 128;
@@ -128,6 +139,7 @@ function getGradientStr(varName) {
 }
 
 function updateUI() {
+    // Sincronizar Cajas y Sliders
     document.getElementById('c1-L').value = state.c1.L;
     document.getElementById('c1-a').value = state.c1.a;
     document.getElementById('c1-b').value = state.c1.b;
@@ -136,6 +148,7 @@ function updateUI() {
     document.getElementById('sl-a').value = state.c2.a; document.getElementById('c2-a').value = state.c2.a;
     document.getElementById('sl-b').value = state.c2.b; document.getElementById('c2-b').value = state.c2.b;
 
+    // Actualizar Muestras y HEX
     const rgb1 = lab2rgb(state.c1.L, state.c1.a, state.c1.b);
     const hex1 = rgb2hex(rgb1[0], rgb1[1], rgb1[2]);
     document.getElementById('swatch1').style.backgroundColor = hex1;
@@ -146,10 +159,12 @@ function updateUI() {
     document.getElementById('swatch2').style.backgroundColor = hex2;
     document.getElementById('hex2').value = hex2;
 
+    // Actualizar Fondos Degradados de los sliders
     document.getElementById('sl-L').style.background = getGradientStr('L');
     document.getElementById('sl-a').style.background = getGradientStr('a');
     document.getElementById('sl-b').style.background = getGradientStr('b');
 
+    // Deltas
     let dL = state.c2.L - state.c1.L, da = state.c2.a - state.c1.a, db = state.c2.b - state.c1.b;
     let dE = Math.sqrt(dL*dL + da*da + db*db);
     document.getElementById('txt-deltas').innerHTML = `ΔL*: ${dL.toFixed(1)} &nbsp;|&nbsp; Δa*: ${da.toFixed(1)} &nbsp;|&nbsp; Δb*: ${db.toFixed(1)} <br> <span style="font-size:16px; color:#d9534f">ΔE* = ${dE.toFixed(1)}</span>`;
@@ -157,6 +172,7 @@ function updateUI() {
     update3D();
 }
 
+// --- 7. LISTENERS DE EVENTOS ---
 function attachListeners() {
     const bindInput = (id, obj, key) => {
         document.getElementById(id).addEventListener('input', (e) => {
@@ -170,13 +186,14 @@ function attachListeners() {
     bindInput('sl-b', 'c2', 'b'); bindInput('c2-b', 'c2', 'b');
 }
 
+// Bucle de animación nativo de WebGL
 function animate() {
     requestAnimationFrame(animate);
     controls.update();
     renderer.render(scene, camera);
 }
 
-// --- 8. BOTONES DE EXPORTACIÓN ---
+// --- 8. BOTONES DE EXPORTACIÓN (Corregido y Mejorado) ---
 const exportCanvas = document.createElement('canvas');
 exportCanvas.width = 512;
 exportCanvas.height = 512;
@@ -190,9 +207,8 @@ function downloadCanvasImage(filename) {
 }
 
 function saveCircularColorImage(rgb, filename) {
-    // 1. Pintar fondo blanco sólido
-    exportCtx.fillStyle = "#ffffff";
-    exportCtx.fillRect(0, 0, 512, 512);
+    // 1. Limpiar el lienzo (Vuelve a ser 100% transparente) <--- SOLUCIÓN AQUÍ
+    exportCtx.clearRect(0, 0, 512, 512);
 
     // 2. Dibujar el círculo de color
     exportCtx.beginPath();
@@ -202,14 +218,14 @@ function saveCircularColorImage(rgb, filename) {
     
     // 3. Ponerle un borde negro sutil para que resalte
     exportCtx.strokeStyle = "#000000";
-    exportCtx.lineWidth = 6;
+    exportCtx.lineWidth = 10;
     exportCtx.stroke();
     
     downloadCanvasImage(filename);
 }
 
 document.getElementById('btn-save-3d').addEventListener('click', () => {
-    renderer.render(scene, camera); 
+    renderer.render(scene, camera); // Renderizar frame actual
     const link = document.createElement('a');
     link.download = `Colorimetro_3D_${new Date().getTime()}.png`;
     link.href = renderer.domElement.toDataURL('image/png');
@@ -239,9 +255,8 @@ document.getElementById('btn-save-c2-circle').addEventListener('click', () => {
 });
 
 document.getElementById('btn-save-together-square').addEventListener('click', () => {
-    // Fondo blanco
-    exportCtx.fillStyle = "#ffffff";
-    exportCtx.fillRect(0, 0, 512, 512);
+    // Limpiar canvas <--- SOLUCIÓN AQUÍ
+    exportCtx.clearRect(0, 0, 512, 512);
     
     // Mitad izquierda
     const rgb1 = lab2rgb(state.c1.L, state.c1.a, state.c1.b);
