@@ -37,7 +37,7 @@ scene.background = new THREE.Color(0xf4f4f4); // Fondo gris claro
 const camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
 camera.position.set(250, 150, 250);
 
-// preserveDrawingBuffer necesario para exportar imagen
+// preserveDrawingBuffer necesario para poder exportar la imagen a PNG luego
 const renderer = new THREE.WebGLRenderer({ antialias: true, preserveDrawingBuffer: true });
 renderer.setSize(container.clientWidth, container.clientHeight);
 container.appendChild(renderer.domElement);
@@ -46,7 +46,6 @@ const controls = new OrbitControls(camera, renderer.domElement);
 controls.target.set(0, 50, 0); // Mirar al centro de la caja (L=50)
 
 // --- 4. DIBUJAR ENTORNO ESTÁTICO 3D ---
-const materialGris = new THREE.LineBasicMaterial({ color: 0xcccccc });
 const materialEjes = new THREE.LineBasicMaterial({ color: 0x000000, linewidth: 2 });
 
 // Caja y cuadrícula a la altura de L=50 (Y=50)
@@ -54,17 +53,17 @@ const gridHelper = new THREE.GridHelper(256, 4, 0x999999, 0xdddddd);
 gridHelper.position.y = 50;
 scene.add(gridHelper);
 
-// Eje L (Blanco/Negro)
+// Eje L (Línea central negra)
 const pointsL = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 100, 0)];
 const lineL = new THREE.Line(new THREE.BufferGeometry().setFromPoints(pointsL), materialEjes);
 scene.add(lineL);
 
-// Función auxiliar para texto 3D (Sprites 2D)
+// Función auxiliar para crear Textos 3D (Sprites)
 function createTextSprite(message, colorStr) {
     const canvas = document.createElement('canvas');
     const context = canvas.getContext('2d');
     canvas.width = 256; canvas.height = 128;
-    context.font = "Bold 30px Arial";
+    context.font = "Bold 35px Arial";
     context.fillStyle = colorStr;
     context.textAlign = "center";
     context.fillText(message, 128, 64);
@@ -75,13 +74,21 @@ function createTextSprite(message, colorStr) {
     return sprite;
 }
 
-// Etiquetas y ejes fijos
-scene.add(createTextSprite("L = 100", "#000")).position.set(0, 108, 0);
-scene.add(createTextSprite("L = 0", "#000")).position.set(0, -8, 0);
-scene.add(createTextSprite("+a (Red)", "red")).position.set(140, 50, 0);
-scene.add(createTextSprite("-a (Green)", "green")).position.set(-140, 50, 0);
-scene.add(createTextSprite("+b (Yellow)", "#D4AF37")).position.set(0, 50, 140);
-scene.add(createTextSprite("-b (Blue)", "blue")).position.set(0, 50, -140);
+// Etiquetas y ejes fijos (¡CORREGIDO!)
+const etiquetas = [
+    { texto: "L = 100", color: "#000", pos: [0, 108, 0] },
+    { texto: "L = 0", color: "#000", pos: [0, -8, 0] },
+    { texto: "+a (Red)", color: "red", pos: [140, 50, 0] },
+    { texto: "-a (Green)", color: "green", pos: [-140, 50, 0] },
+    { texto: "+b (Yellow)", color: "#D4AF37", pos: [0, 50, 140] },
+    { texto: "-b (Blue)", color: "blue", pos: [0, 50, -140] }
+];
+
+etiquetas.forEach(etiq => {
+    const sprite = createTextSprite(etiq.texto, etiq.color);
+    sprite.position.set(etiq.pos[0], etiq.pos[1], etiq.pos[2]); // Se posiciona correctamente
+    scene.add(sprite); // Se añade a la escena
+});
 
 // --- 5. VECTORES DINÁMICOS ---
 let dynamicGroup = new THREE.Group();
@@ -116,7 +123,6 @@ function update3D() {
 
 // --- 6. ACTUALIZAR INTERFAZ Y DEGRADADOS CSS ---
 function getGradientStr(varName) {
-    // Generamos 5 puntos para crear un gradiente perfecto en CSS
     let stops = [];
     const min = varName === 'L' ? 0 : -128;
     const max = varName === 'L' ? 100 : 128;
